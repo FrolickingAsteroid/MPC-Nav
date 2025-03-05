@@ -44,19 +44,17 @@ class MPC(object):
         # ==============================
         # (Section for robot dynamics?)
 
-        # Aux functions
-        self.fs = Auxiliary()
+        # Aux variables
         self.status = ""
         self.current_distance = 0;
 
+    def solve_uav_to_ugv(self, state, gp):
+        """
+        Solves the mpc optimization problem
+        """
         # ==============================
         # INITIAL CONDITIONS
         # ==============================
-        #initial conditions and goals
-        self.init_x = [state['x']]; self.init_y = [state['y']]; self.init_theta = [state['theta']]
-        self.init_vt = [state['vt']]; self.init_vr = [state['vr']];
-
-    def solve_uav_to_ugv(self, state, gp):
         # The optimization problem starts from the latest state measurements
         self.init_x = [state['x']]; self.init_y = [state['y']]; self.init_theta = [state['theta']]
         self.init_vt = [state['vt']]; self.init_vr = [state['vr']]
@@ -141,38 +139,20 @@ class MPC(object):
         # ==============================
         # FOV CONSTRAINT
         # ==============================
-        self.beta = np.deg2rad(50)
-
-        # Define a small offset to avoid division by zero
+        self.beta = np.deg2rad(60)
         epsilon = 1e-6
 
         for k in range(1, self.N):
 
-            # Define the angle calculation using CasADi's atan2 function
             angle_to_person = arctan2(gp[1] - self.pos_y[k] + epsilon, gp[0] - self.pos_x[k])
-
-            # Normalize the angle
-            angle_to_person = np.mod(angle_to_person + pi, 2 * pi) - pi
-
-            # Add FOV constraint with angular tolerance
             opti.subject_to(opti.bounded((self.pos_theta[k] - self.beta), angle_to_person, (self.pos_theta[k] + self.beta)))
-
-        # ==============================
-        # DISTANCE CONSTRAINT
-        # ==============================
-        #if self.current_distance < self.max_distance ** 2 and self.current_distance > self.min_distance ** 2:
-            #for k in range(self.N + 1):
-                #distance = (self.pos_x[k] - gp[0]) ** 2 + (self.pos_y[k] - gp[1]) ** 2
-                #opti.subject_to(opti.bounded(self.min_distance ** 2, distance, self.max_distance ** 2))
-
 
         # ==============================
         # DEFINE COST FUNCTION
         # ==============================
 
-        # Desired distance (midpoint of the range)
+        # "Desired distance" (midpoint of the comfort region range)
         desired_distance = (self.min_distance + self.max_distance) / 2
-        dead_zone = 4
 
         # Check if the target is moving
         target_moving = (abs(gp[0] - self.prev_target_x) > 1e-1 or abs(gp[1] - self.prev_target_y) > 1e-1)
@@ -193,10 +173,13 @@ class MPC(object):
                 objective -= self.alpha * (self.pos_x[k] - gp[0]) ** 2
                 objective -= self.alpha * (self.pos_y[k] - gp[1]) ** 2
 
-            # Add dead zone penalty
-            elif not target_moving and abs(sqrt(self.current_distance) - desired_distance) < dead_zone:
+            elif self.max_distance ** 2 < self.current_distance > self.min_distance ** 2 and target_moving:
+                pass
+
+            # Add dead zone
+            elif not target_moving and sqrt(self.current_distance) < desired_distance:
                 self.status = "Dead Zone"
-                objective += 1.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
+                objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
 
             # Update the target's previous position
             self.prev_target_x = gp[0]
@@ -235,11 +218,12 @@ class MPC(object):
 
         self.cost = obj_vals[-1]
 
-
         return converged
 
     def update_state(self, start):
-        # Extracts the optimized state values at a given time step.
+        """
+        Extracts the optimized state values at a given time step.
+        """
         state = {}
         state['x'] = self.sol.value(self.pos_x[start])
         state['y'] = self.sol.value(self.pos_y[start])
@@ -250,7 +234,9 @@ class MPC(object):
         return state
 
     def get_control(self, i=0):
-        # Extracts the optimal control inputs from the solver.
+        """
+        Extracts the optimal control inputs from the solver.
+        """
         control = {}
         control['A'] = self.sol.value(self.A[i])
         control['Phi'] = self.sol.value(self.Phi[i])

@@ -4,10 +4,10 @@ import pygame
 class Robot:
     def __init__(self, x=400, y=350, theta=-np.pi/2, b=15, wheel_radius=5):
         self.position = np.array([x, y], dtype=float)
-        self.angle = theta  # Initial orientation angle in radians
-        self.b = b  # Half the width of the robot
+        self.angle = theta
+        self.b = b                  # Half the width of the robot
         self.wheel_radius = wheel_radius
-        self.color = (51, 255, 51)  # Color of the robot
+        self.color = (51, 255, 51)
         self.orientation_color = (51, 255, 51)
 
         self.position_history = []
@@ -29,7 +29,7 @@ class Robot:
         # Rotate and translate the corners to get the actual vertices
         self.polygon = [self.position + np.dot(corner, [[cos_angle, -sin_angle], [sin_angle, cos_angle]]) for corner in offset]
 
-        # Calculate the endpoint for the orientation line (e.g., 10 pixels long)
+        # Calculate the endpoint
         orientation_end = self.position + np.array([np.cos(self.angle), -np.sin(self.angle)]) * 14
         self.orientation_line = [self.position, orientation_end]
 
@@ -42,7 +42,7 @@ class Robot:
         pygame.draw.line(screen, self.orientation_color, self.orientation_line[0], self.orientation_line[1], width=4)
 
     def update_state(self, state):
-        # Update state from an external source, e.g., MPC output
+        # Update state from an external source (mpc)
         self.position = np.array([state['x'], state['y']], dtype=float)
         self.angle = -state['theta']
         self.update_polygon()
