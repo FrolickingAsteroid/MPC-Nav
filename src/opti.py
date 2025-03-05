@@ -12,7 +12,7 @@ from mpc import MPC
 class Simulation:
     def __init__(self, window_size=(800, 600)):
         self.N = 10 # number of control intervals
-        self.T = 2
+        self.T = 1
         self.threshold_pos = 0.2
         self.threshold_ori = 0.2
 

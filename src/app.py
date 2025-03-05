@@ -52,8 +52,8 @@ class Visualizer:
         self.draw_grid()
 
         # Draw the trail of the target
-        for trail_pos in trail:
-            pygame.draw.circle(self.screen, (200, 200, 200), trail_pos, 2)
+        #for trail_pos in trail:
+            #pygame.draw.circle(self.screen, (200, 200, 200), trail_pos, 2)
 
         # Draw the predicted trajectory from the MPC solver
         if mpc.sol is not None:

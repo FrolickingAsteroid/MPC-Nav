@@ -22,8 +22,8 @@ class MPC(object):
         # ==============================
         # SYSTEM CONSTRAINT PARAMETERS
         # ==============================
-        self.configs = {'max_A': 5.0,  'max_Phi': 1.5, 'max_vt': 10.0,  'max_vr':0.5,
-                        'min_A': -5.0, 'min_Phi': -1.5, 'min_vt':-10.0, 'min_vr':-0.5}
+        self.configs = {'max_A': 10.0,  'max_Phi': 1.5, 'max_vt': 10.0,  'max_vr':0.5,
+                        'min_A': -10.0, 'min_Phi': -1.5, 'min_vt':-10.0, 'min_vr':-0.5}
 
         # Distance constraints
         self.min_distance = 45
@@ -140,7 +140,7 @@ class MPC(object):
         # FOV CONSTRAINT
         # ==============================
         #self.beta = np.deg2rad(60)
-        #epsilon = 1e-6
+        epsilon = 1e-6
 
         #for k in range(1, self.N):
 
@@ -154,24 +154,14 @@ class MPC(object):
         # "Desired distance" (midpoint of the comfort region range)
         desired_distance = (self.min_distance + self.max_distance) / 2
 
+
         # Check if the target is moving
         target_moving = (abs(gp[0] - self.prev_target_x) > 1e-3 or abs(gp[1] - self.prev_target_y) > 1e-3)
-        #print(arctan2(gp[1] - state["y"] + epsilon, gp[0] - state["x"]))
-
-        #print(f"{self.init_vr=:}")
-        #print(f"{self.init_vt=:}")
-        #print(f"{self.init_theta=:}")
+        print(arctan2(gp[1] - state["y"] + epsilon, gp[0] - state["x"]))
 
         # Define the cost function
         objective = 0
         for k in range(0, self.N + 1):
-
-            # garantee soft constraint for FOV for all stages
-            angle_to_target = arctan2(gp[1] - self.pos_y[k], gp[0] - self.pos_x[k])
-            angle_error = atan2(sin(angle_to_target - self.pos_theta[k]), cos(angle_to_target - self.pos_theta[k]))
-            objective += 0.01 * angle_error**2
-
-
             if self.current_distance > self.max_distance ** 2:
                 # Stage 1: Minimize distance to the target
                 self.status = "Stage 1"
@@ -184,14 +174,14 @@ class MPC(object):
                 objective -= self.alpha * (self.pos_x[k] - gp[0]) ** 2
                 objective -= self.alpha * (self.pos_y[k] - gp[1]) ** 2
 
-            else:
-                if target_moving:
-                    self.status = "Stage 3"
-                    objective += 0.001 * (self.vel_t[k] ** 2)
-                else:
-                    # Add dead zone
-                    self.status = "Dead Zone"
-                    objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
+            # Add dead zone
+            elif not target_moving and sqrt(self.current_distance) < desired_distance:
+                self.status = "Dead Zone"
+                objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
+
+            elif self.min_distance ** 2 <= self.current_distance <= self.max_distance ** 2 and target_moving:
+                self.status = "Stage 3"
+                objective +=  0.01 * (arctan2(gp[1] - self.pos_y[k] + epsilon, gp[0] - self.pos_x[k]) - self.pos_theta[k])**2
 
             # Update the target's previous position
             self.prev_target_x = gp[0]

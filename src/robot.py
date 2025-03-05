@@ -7,6 +7,7 @@ class Robot:
         self.angle = theta
         self.b = b                  # Half the width of the robot
         self.wheel_radius = wheel_radius
+        self.radius = 15
         self.color = (51, 255, 51)
         self.orientation_color = (51, 255, 51)
 
@@ -34,12 +35,13 @@ class Robot:
         self.orientation_line = [self.position, orientation_end]
 
     def draw(self, screen):
-        for trail_pos in self.position_history:
-            pygame.draw.circle(screen, (0, 0, 255), trail_pos, 2)
+        #for trail_pos in self.position_history:
+            #pygame.draw.circle(screen, (0, 0, 255), trail_pos, 2)
 
         # Draw the polygon on the screen
         pygame.draw.polygon(screen, self.color, np.array(self.polygon, dtype=int), width=4)
         pygame.draw.line(screen, self.orientation_color, self.orientation_line[0], self.orientation_line[1], width=4)
+
 
     def update_state(self, state):
         # Update state from an external source (mpc)
