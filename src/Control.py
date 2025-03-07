@@ -6,11 +6,8 @@ class ControlObject:
         self.position = np.array(position, dtype=float)
         self.speed = speed
         self.steer_angle = steer_angle
-        self.max_speed = 10
+        self.max_speed = 5
         self.max_steer = np.pi / 4
-
-        self.scale_factor = 100 # 10 pixels per meter
-
         self.position_history = []
 
     def update(self, dt):

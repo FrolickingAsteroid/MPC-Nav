@@ -22,8 +22,8 @@ class MPC(object):
         # ==============================
         # SYSTEM CONSTRAINT PARAMETERS
         # ==============================
-        self.configs = {'max_A': 5.0,  'max_Phi': 1.5, 'max_vt': 10.0,  'max_vr':0.5,
-                        'min_A': -5.0, 'min_Phi': -1.5, 'min_vt':-10.0, 'min_vr':-0.5}
+        self.configs = {'max_A': 10.0,  'max_Phi': 1.5, 'max_vt': 10.0,  'max_vr':0.5,
+                        'min_A': -10.0, 'min_Phi': -1.5, 'min_vt':-10.0, 'min_vr':-0.5}
 
         # Distance constraints
         self.min_distance = 45
@@ -135,18 +135,6 @@ class MPC(object):
             opti.set_initial(self.pos_x[k], self.init_x)
             opti.set_initial(self.pos_y[k], self.init_y)
 
-
-        # ==============================
-        # FOV CONSTRAINT
-        # ==============================
-        #self.beta = np.deg2rad(60)
-        #epsilon = 1e-6
-
-        #for k in range(1, self.N):
-
-            #angle_to_person = arctan2(gp[1] - self.pos_y[k] + epsilon, gp[0] - self.pos_x[k])
-            #opti.subject_to(opti.bounded((self.pos_theta[k] - self.beta), angle_to_person, (self.pos_theta[k] + self.beta)))
-
         # ==============================
         # DEFINE COST FUNCTION
         # ==============================
@@ -174,23 +162,26 @@ class MPC(object):
 
             if self.current_distance > self.max_distance ** 2:
                 # Stage 1: Minimize distance to the target
-                self.status = "Stage 1"
+                self.status = "Pursuit"
                 objective += self.alpha * (self.pos_x[k] - (gp[0])) ** 2
                 objective += self.alpha * (self.pos_y[k] - (gp[1])) ** 2
 
             elif self.current_distance < self.min_distance ** 2:
                 # Stage 2: Maximize distance to the target
-                self.status = "Stage 2"
+                self.status = "Retreat"
                 objective -= self.alpha * (self.pos_x[k] - gp[0]) ** 2
                 objective -= self.alpha * (self.pos_y[k] - gp[1]) ** 2
 
             else:
+                # ==============================
+                # FOV CONSTRAINT
+                # ==============================
                 if target_moving:
-                    self.status = "Stage 3"
+                    self.status = "Pursuit"
                     objective += 0.001 * (self.vel_t[k] ** 2)
                 else:
                     # Add dead zone
-                    self.status = "Dead Zone"
+                    self.status = "Stopped"
                     objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
 
             # Update the target's previous position

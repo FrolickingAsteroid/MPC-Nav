@@ -13,11 +13,11 @@ class Visualizer:
         self.grid_color = (50, 50, 50)
 
         # Info panel
-        self.font = pygame.font.Font(None, 36)
+        self.font = pygame.font.SysFont("jetbrainsmononerdfont", 12)
         self.panel_color = (200, 200, 200)
         self.text_color = (0, 0, 0)
         self.panel_width = 250
-        self.panel_height = 80
+        self.panel_height = 130
         self.panel_x = window_size[0] - self.panel_width - 10
         self.panel_y = 10
 
@@ -29,17 +29,52 @@ class Visualizer:
         for y in range(0, self.screen.get_height(), self.grid_size):
             pygame.draw.line(self.screen, self.grid_color, (0, y), (self.screen.get_width(), y))
 
-    def draw_info_panel(self, state, distance):
-        # Draw the panel background
-        pygame.draw.rect(self.screen, self.panel_color, (self.panel_x, self.panel_y, self.panel_width, self.panel_height))
 
-        # Render and draw the state text
-        state_text = self.font.render(f"{state}", True, self.text_color)
+    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta):
+        panel_rect = pygame.Rect(self.panel_x, self.panel_y, self.panel_width, self.panel_height)
+        panel_surface = pygame.Surface((self.panel_width, self.panel_height), pygame.SRCALPHA)
+
+        # Draw rounded rectangle
+        pygame.draw.rect(self.screen, (200, 200, 200, 180), panel_rect, border_radius=15)
+
+        state_text = self.font.render(f"Status: {state}", True, self.text_color)
         self.screen.blit(state_text, (self.panel_x + 10, self.panel_y + 10))
 
-        # Render and draw the distance text
-        distance_text = self.font.render(f"Distance: {np.sqrt(distance):.2f}", True, self.text_color)
-        self.screen.blit(distance_text, (self.panel_x + 10, self.panel_y + 50))
+        distance_text = self.font.render(f"Distance to target: {np.sqrt(distance)/50:.2f} m", True, self.text_color)
+        self.screen.blit(distance_text, (self.panel_x + 10, self.panel_y + 30))
+
+        vel_lin_text = self.font.render(f"Linear Velocity: {vel_lin:.3f} m/s", True, self.text_color)
+        self.screen.blit(vel_lin_text, (self.panel_x + 10, self.panel_y + 60))
+
+        vel_r_text = self.font.render(f"Angular Velocity: {vel_r:.3f} rad/s", True, self.text_color)
+        self.screen.blit(vel_r_text, (self.panel_x + 10, self.panel_y + 80))
+
+        theta_text = self.font.render(f"Orientation: {theta:.3f} rad", True, self.text_color)
+        self.screen.blit(theta_text, (self.panel_x + 10, self.panel_y + 100))
+
+
+    def draw_fading_trail(self, trail):
+        # Create a semi-transparent surface
+        trail_surface = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+
+        # Define a fade threshold (e.g., only keep visible points)
+        fade_threshold = 10  # Only draw if alpha is above this
+
+        new_trail = []  # Store only visible points
+
+        for i in range(len(trail) - 1):
+            alpha = int(255 * (i / len(trail)))  # Fade effect
+            if alpha > fade_threshold:  # Only draw points above the threshold
+                color = (0, 255, 255, alpha)
+                pygame.draw.line(trail_surface, color, trail[i], trail[i+1], 3)
+                new_trail.append(trail[i])  # Keep only visible points
+
+        # Update the trail history with only visible points
+        trail[:] = new_trail
+
+        # Blit the transparent trail onto the main screen
+        self.screen.blit(trail_surface, (0, 0))
+
 
 
     def draw_arrow(self, start_pos, angle, length=20, color=(255, 0, 0), width=2):
@@ -51,9 +86,8 @@ class Visualizer:
         self.screen.fill((0, 0, 0))  # Clear the screen
         self.draw_grid()
 
-        # Draw the trail of the target
-        #for trail_pos in trail:
-            #pygame.draw.circle(self.screen, (200, 200, 200), trail_pos, 2)
+        # draw path history
+        self.draw_fading_trail(trail)
 
         # Draw the predicted trajectory from the MPC solver
         if mpc.sol is not None:
@@ -63,7 +97,7 @@ class Visualizer:
 
             for i in range(len(xs)):
                 # Draw an arrow for each predicted state
-                self.draw_arrow((xs[i], ys[i]), thetas[i], length=40, color=(255, 0, 255), width=2)
+                self.draw_arrow((xs[i], ys[i]), thetas[i], length=40, color=(255, 0, 255), width=1)
 
         # Update the robot's state and draw it
         self.robot.update_state(state)
@@ -73,7 +107,5 @@ class Visualizer:
         pygame.draw.circle(self.screen, (255, 0, 0), position, 8)
 
         # Draw the info panel
-        self.draw_info_panel(mpc.status, mpc.current_distance)
-
-        # Update the display
+        self.draw_info_panel(mpc.status, mpc.current_distance, state['vt'], state['vr'], state['theta'])
         pygame.display.flip()
