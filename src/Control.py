@@ -6,7 +6,7 @@ class ControlObject:
         self.position = np.array(position, dtype=float)
         self.speed = speed
         self.steer_angle = steer_angle
-        self.max_speed = 5
+        self.max_speed = 50
         self.max_steer = np.pi / 4
         self.position_history = []
 

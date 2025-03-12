@@ -13,7 +13,7 @@ class Visualizer:
         self.grid_color = (50, 50, 50)
 
         # Info panel
-        self.font = pygame.font.SysFont("jetbrainsmononerdfont", 12)
+        self.font = pygame.font.SysFont("jetbrainsmononerdfont", 18)
         self.panel_color = (200, 200, 200)
         self.text_color = (0, 0, 0)
         self.panel_width = 250
@@ -43,10 +43,10 @@ class Visualizer:
         distance_text = self.font.render(f"Distance to target: {np.sqrt(distance)/50:.2f} m", True, self.text_color)
         self.screen.blit(distance_text, (self.panel_x + 10, self.panel_y + 30))
 
-        vel_lin_text = self.font.render(f"Linear Velocity: {vel_lin:.3f} m/s", True, self.text_color)
-        self.screen.blit(vel_lin_text, (self.panel_x + 10, self.panel_y + 60))
+        vel_lin_text = self.font.render(f"Linear Velocity: {vel_lin / 50:.3f} m/s", True, self.text_color)
+        self.screen.blit(vel_lin_text, (self.panel_x + 10, self.panel_y  + 60))
 
-        vel_r_text = self.font.render(f"Angular Velocity: {vel_r:.3f} rad/s", True, self.text_color)
+        vel_r_text = self.font.render(f"Angular Velocity: {vel_r / 50:.3f} rad/s", True, self.text_color)
         self.screen.blit(vel_r_text, (self.panel_x + 10, self.panel_y + 80))
 
         theta_text = self.font.render(f"Orientation: {theta:.3f} rad", True, self.text_color)
@@ -54,25 +54,19 @@ class Visualizer:
 
 
     def draw_fading_trail(self, trail):
-        # Create a semi-transparent surface
         trail_surface = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        fade_threshold = 40  
 
-        # Define a fade threshold (e.g., only keep visible points)
-        fade_threshold = 10  # Only draw if alpha is above this
-
-        new_trail = []  # Store only visible points
+        new_trail = []  
 
         for i in range(len(trail) - 1):
-            alpha = int(255 * (i / len(trail)))  # Fade effect
-            if alpha > fade_threshold:  # Only draw points above the threshold
+            alpha = int(255 * (i / len(trail)))  
+            if alpha > fade_threshold:  
                 color = (0, 255, 255, alpha)
                 pygame.draw.line(trail_surface, color, trail[i], trail[i+1], 3)
-                new_trail.append(trail[i])  # Keep only visible points
+                new_trail.append(trail[i]) 
 
-        # Update the trail history with only visible points
         trail[:] = new_trail
-
-        # Blit the transparent trail onto the main screen
         self.screen.blit(trail_surface, (0, 0))
 
 

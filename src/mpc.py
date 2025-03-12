@@ -22,12 +22,12 @@ class MPC(object):
         # ==============================
         # SYSTEM CONSTRAINT PARAMETERS
         # ==============================
-        self.configs = {'max_A': 10.0,  'max_Phi': 1.5, 'max_vt': 10.0,  'max_vr':0.5,
-                        'min_A': -10.0, 'min_Phi': -1.5, 'min_vt':-10.0, 'min_vr':-0.5}
+        self.configs = {'max_A': 50.0,  'max_Phi': 1.5, 'max_vt': 50.0,  'max_vr':0.5,
+                        'min_A': -50.0, 'min_Phi': -1.5, 'min_vt':-50.0, 'min_vr':-0.5}
 
         # Distance constraints
-        self.min_distance = 45
-        self.max_distance = 60
+        self.min_distance = 25      # 0.50 m
+        self.max_distance = 100     # 2 m
 
         self.prev_target_x = 0
         self.prev_target_y = 0
@@ -36,8 +36,7 @@ class MPC(object):
         # CONSTANTS
         # ==============================
         # State cost gain
-        self.alpha = 10
-        self.beta = 1
+        # (add when certain...)
 
         # ==============================
         # ROBOT CHARACTERISTICS
@@ -139,54 +138,62 @@ class MPC(object):
         # DEFINE COST FUNCTION
         # ==============================
 
-        # "Desired distance" (midpoint of the comfort region range)
-        desired_distance = (self.min_distance + self.max_distance) / 2
-
         # Check if the target is moving
         target_moving = (abs(gp[0] - self.prev_target_x) > 1e-3 or abs(gp[1] - self.prev_target_y) > 1e-3)
-        #print(arctan2(gp[1] - state["y"] + epsilon, gp[0] - state["x"]))
 
-        #print(f"{self.init_vr=:}")
-        #print(f"{self.init_vt=:}")
-        #print(f"{self.init_theta=:}")
+        # Compute estimated target velocity
+        delta_time = dt
+        vt_x = (gp[0] - self.prev_target_x) / delta_time
+        vt_y = (gp[1] - self.prev_target_y) / delta_time
+        target_speed = sqrt(vt_x**2 + vt_y**2)  
 
         # Define the cost function
         objective = 0
-        for k in range(0, self.N + 1):
 
-            # garantee soft constraint for FOV for all stages
+        # Check heading angle for sharp turns
+        target_heading = arctan2(gp[1] - self.prev_target_y, gp[0] - self.prev_target_x)
+        angle_error = atan2(sin(target_heading - state['theta']), cos(target_heading - state['theta']))
+        print(angle_error)
+        large_angle_error = abs(angle_error) > 1
+
+        for k in range(0, self.N + 1):
+            # ==============================
+            # FOV SOFT CONSTRAINT
+            # ==============================
             angle_to_target = arctan2(gp[1] - self.pos_y[k], gp[0] - self.pos_x[k])
             angle_error = atan2(sin(angle_to_target - self.pos_theta[k]), cos(angle_to_target - self.pos_theta[k]))
-            objective += 0.01 * angle_error**2
+            objective += 0.1 * angle_error**2
 
+            if target_moving:
+                if self.min_distance < sqrt(self.current_distance) < self.max_distance:
+                    if large_angle_error:
+                        self.status = "Turn-In-Place"
+                        objective += 5.0 * angle_error**2  
+                        objective += 10.0 * self.vel_t[k]**2  
+                    else:
+                        self.status = "Track target"
+                        velocity_difference = self.vel_t[k] - target_speed
+                        objective += 0.1 * (velocity_difference)**2   
 
-            if self.current_distance > self.max_distance ** 2:
-                # Stage 1: Minimize distance to the target
-                self.status = "Pursuit"
-                objective += self.alpha * (self.pos_x[k] - (gp[0])) ** 2
-                objective += self.alpha * (self.pos_y[k] - (gp[1])) ** 2
-
-            elif self.current_distance < self.min_distance ** 2:
-                # Stage 2: Maximize distance to the target
-                self.status = "Retreat"
-                objective -= self.alpha * (self.pos_x[k] - gp[0]) ** 2
-                objective -= self.alpha * (self.pos_y[k] - gp[1]) ** 2
+                elif  sqrt(self.current_distance) < self.min_distance:
+                    self.status = "Retreat"
+                    objective -= 1 * (self.pos_x[k] - gp[0])**2  
+                    objective -= 1 * (self.pos_y[k] - gp[1])**2   
+                else:
+                    self.status = "Pursuit"
+                    objective += 1 * (self.pos_x[k] - (gp[0])) ** 2
+                    objective += 1 * (self.pos_y[k] - (gp[1])) ** 2
 
             else:
-                # ==============================
-                # FOV CONSTRAINT
-                # ==============================
-                if target_moving:
-                    self.status = "Pursuit"
-                    objective += 0.001 * (self.vel_t[k] ** 2)
-                else:
-                    # Add dead zone
-                    self.status = "Stopped"
-                    objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
+                self.status = "Stopped"
+                objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
 
-            # Update the target's previous position
-            self.prev_target_x = gp[0]
-            self.prev_target_y = gp[1]
+
+
+
+        # Update previous target position
+        self.prev_target_x = gp[0]
+        self.prev_target_y = gp[1]
 
         opti.minimize(objective)
 
