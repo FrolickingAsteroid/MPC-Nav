@@ -147,14 +147,13 @@ class MPC(object):
         vt_y = (gp[1] - self.prev_target_y) / delta_time
         target_speed = sqrt(vt_x**2 + vt_y**2)  
 
-        # Define the cost function
-        objective = 0
-
         # Check heading angle for sharp turns
         target_heading = arctan2(gp[1] - self.prev_target_y, gp[0] - self.prev_target_x)
         angle_error = atan2(sin(target_heading - state['theta']), cos(target_heading - state['theta']))
-        print(angle_error)
         large_angle_error = abs(angle_error) > 1
+
+        # Define the cost function
+        objective = 0
 
         for k in range(0, self.N + 1):
             # ==============================
