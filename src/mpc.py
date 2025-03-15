@@ -1,3 +1,9 @@
+"""
+Filename: mpc.py
+Description:
+    MPC implementation for a people-following robot
+"""
+
 from casadi import *
 import numpy as np
 import math
@@ -47,7 +53,7 @@ class MPC(object):
         self.status = ""
         self.current_distance = 0;
 
-    def solve_uav_to_ugv(self, state, gp):
+    def mpc_opt(self, state, gp):
         """
         Solves the mpc optimization problem
         """
@@ -67,7 +73,7 @@ class MPC(object):
         # DECISION VARIABLES
         # ==============================
         X = opti.variable(self.nr_states, self.N+1)     # state trajectory: 5 state variables over (N+1) time steps
-        U = opti.variable(self.nr_controls, self.N)     # control trajectory (throttle)
+        U = opti.variable(self.nr_controls, self.N)     # control trajectory
 
         # The cost function will be accumulated dynamically
         objective = 0
@@ -137,58 +143,62 @@ class MPC(object):
         # ==============================
         # DEFINE COST FUNCTION
         # ==============================
+        # Would it be best to reason probabilistically instead of in a deterministic manner?
+        # Human movement is inherently unpredictable.
+        # Probabilistic human predictions instead of well defined states?
+        # Maybe too much...
 
         # Check if the target is moving
         target_moving = (abs(gp[0] - self.prev_target_x) > 1e-3 or abs(gp[1] - self.prev_target_y) > 1e-3)
 
         # Compute estimated target velocity
-        delta_time = dt
-        vt_x = (gp[0] - self.prev_target_x) / delta_time
-        vt_y = (gp[1] - self.prev_target_y) / delta_time
-        target_speed = sqrt(vt_x**2 + vt_y**2)  
+        vt_x = (gp[0] - self.prev_target_x) / dt
+        vt_y = (gp[1] - self.prev_target_y) / dt
+        target_speed = sqrt(vt_x**2 + vt_y**2)
 
         # Check heading angle for sharp turns
+        # Use angle wrapping [-pi, pi] to prevent discontinuity and large angle errors
+        # (Easier than changing frame atm)
         target_heading = arctan2(gp[1] - self.prev_target_y, gp[0] - self.prev_target_x)
         angle_error = atan2(sin(target_heading - state['theta']), cos(target_heading - state['theta']))
-        large_angle_error = abs(angle_error) > 1
+        large_angle_error = abs(angle_error) > 0.8
 
         # Define the cost function
         objective = 0
 
         for k in range(0, self.N + 1):
-            # ==============================
-            # FOV SOFT CONSTRAINT
-            # ==============================
+            # ====================================
+            # FOV SOFT CONSTRAINT (for all states)
+            # ===================================
             angle_to_target = arctan2(gp[1] - self.pos_y[k], gp[0] - self.pos_x[k])
             angle_error = atan2(sin(angle_to_target - self.pos_theta[k]), cos(angle_to_target - self.pos_theta[k]))
             objective += 0.1 * angle_error**2
 
-            if target_moving:
-                if self.min_distance < sqrt(self.current_distance) < self.max_distance:
-                    if large_angle_error:
-                        self.status = "Turn-In-Place"
-                        objective += 5.0 * angle_error**2  
-                        objective += 10.0 * self.vel_t[k]**2  
-                    else:
-                        self.status = "Track target"
-                        velocity_difference = self.vel_t[k] - target_speed
-                        objective += 0.1 * (velocity_difference)**2   
+            if self.min_distance < sqrt(self.current_distance) < self.max_distance:
+                if large_angle_error:
 
-                elif  sqrt(self.current_distance) < self.min_distance:
-                    self.status = "Retreat"
-                    objective -= 1 * (self.pos_x[k] - gp[0])**2  
-                    objective -= 1 * (self.pos_y[k] - gp[1])**2   
+                    self.status = "Turn-In-Place"
+                    objective += 5.0 * angle_error**2
+                    objective += 10.0 * self.vel_t[k]**2
+                elif not target_moving:
+
+                    self.status = "Stopped"
+                    objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
                 else:
-                    self.status = "Pursuit"
-                    objective += 1 * (self.pos_x[k] - (gp[0])) ** 2
-                    objective += 1 * (self.pos_y[k] - (gp[1])) ** 2
 
+                    self.status = "Track target"
+                    velocity_difference = self.vel_t[k] - target_speed
+                    objective += 0.1 * (velocity_difference)**2
+            elif  sqrt(self.current_distance) < self.min_distance:
+
+                self.status = "Retreat"
+                objective -= 1 * (self.pos_x[k] - gp[0])**2
+                objective -= 1 * (self.pos_y[k] - gp[1])**2
             else:
-                self.status = "Stopped"
-                objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
 
-
-
+                self.status = "Pursuit"
+                objective += 1 * (self.pos_x[k] - (gp[0])) ** 2
+                objective += 1 * (self.pos_y[k] - (gp[1])) ** 2
 
         # Update previous target position
         self.prev_target_x = gp[0]

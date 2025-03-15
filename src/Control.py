@@ -1,3 +1,9 @@
+"""
+Filename: Control.py
+Description:
+    Defines the target's movement control
+"""
+
 import pygame
 import numpy as np
 
@@ -11,6 +17,9 @@ class ControlObject:
         self.position_history = []
 
     def update(self, dt):
+        """
+        Update target's position
+        """
         # Update the position based on speed and steering angle
         direction = np.array([np.cos(self.steer_angle), np.sin(self.steer_angle)])
         self.position += direction * self.speed * dt
@@ -18,11 +27,13 @@ class ControlObject:
         self.position_history.append(self.position.copy())
 
     def handle_input(self, keys):
+        """
+        Handle keyboard inputs
+        """
         if keys[pygame.K_UP]:
             self.speed = min(self.speed + 1, self.max_speed)
         elif keys[pygame.K_DOWN]:
             self.speed = max(self.speed - 1, -self.max_speed)
-
         if keys[pygame.K_LEFT]:
             self.steer_angle -= 0.05
         elif keys[pygame.K_RIGHT]:
@@ -32,13 +43,22 @@ class ControlObject:
         self.steer_angle = (self.steer_angle + np.pi) % (2 * np.pi) - np.pi
 
     def get_target(self):
-        return (self.position) #add the distance
+        """
+        Return target position
+        """
+        return (self.position)
 
     def get_position(self):
+        """
+        Return target position as integer
+        """
         # Convert to integer for rendering
         return self.position.astype(int)
 
 
     def get_history(self):
+        """
+        Return target position history
+        """
         # Return the position history
         return [pos.astype(int) for pos in self.position_history]
