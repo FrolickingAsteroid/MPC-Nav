@@ -2,77 +2,71 @@
 Filename: app.py
 Description:
     Visualization tool for the simulation.
+    Loads the obstacle map unto the simulation.
     Assume 50 pixels = 1 meter (used for distance and velocity scaling).
 """
 
 import numpy as np
 import platform
 import pygame
+import csv
 
 from Control import ControlObject
 from robot import Robot
 
+class ObstacleMap:
+    def __init__(self, filename, grid_size=20):
+        self.obstacles = []
+        self.grid_size = grid_size
+        self.load_from_csv(filename)
+
+    def load_from_csv(self, filename):
+        """
+        Load obstacle positions from a CSV file
+        """
+        with open(filename, "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                x, y = map(int, row)
+                self.obstacles.append((x, y))
+
+    def draw(self, screen):
+        """
+        Draw obstacles on the screen as squares
+        """
+        for obstacle in self.obstacles:
+            pygame.draw.rect(screen, (255, 255, 255), (*obstacle, self.grid_size, self.grid_size))
+
 class Visualizer:
-    def __init__(self, window_size=(800, 600), title="MPC Visualization", grid_size=20):
+    def __init__(self, window_size=(1100, 600), grid_size=20, info_panel_width=300):
         pygame.init()
+
+        # Expand the window to fit the info panel on the right
         self.screen = pygame.display.set_mode(window_size)
-        pygame.display.set_caption(title)
+        pygame.display.set_caption("MPC Visualization")
+
         self.grid_color = (50, 50, 50)
         self.grid_size = grid_size
+        self.info_panel_width = info_panel_width  # Width for info panel
 
-        # Info panel
+        # Font setup (windows renders font size differently)
         font_size = 18 if platform.system() == "Windows" else 12
         self.font = pygame.font.SysFont("jetbrainsmononerdfont", font_size) or pygame.font.Font(None, font_size)
 
         self.panel_color = (200, 200, 200)
         self.text_color = (0, 0, 0)
-        self.panel_width = 250
-        self.panel_height = 130
-        self.panel_x = window_size[0] - self.panel_width - 10
-        self.panel_y = 10
 
         self.robot = Robot()
+        self.obstacle_map = ObstacleMap("Maps/obstacle_grid_map.csv")
 
     def draw_grid(self):
         """
         Draws background grid
         """
-        for x in range(0, self.screen.get_width(), self.grid_size):
+        for x in range(0, self.screen.get_width() - self.info_panel_width, self.grid_size):
             pygame.draw.line(self.screen, self.grid_color, (x, 0), (x, self.screen.get_height()))
         for y in range(0, self.screen.get_height(), self.grid_size):
-            pygame.draw.line(self.screen, self.grid_color, (0, y), (self.screen.get_width(), y))
-
-
-    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta):
-        """
-        Draws an info panel displaying robot status, distance to target, velocity, and orientation.
-        """
-        panel_rect = pygame.Rect(self.panel_x, self.panel_y, self.panel_width, self.panel_height)
-        panel_surface = pygame.Surface((self.panel_width, self.panel_height), pygame.SRCALPHA)
-
-        # Draw rounded rectangle
-        pygame.draw.rect(self.screen, (200, 200, 200, 180), panel_rect, border_radius=15)
-
-        # Status
-        state_text = self.font.render(f"Status: {state}", True, self.text_color)
-        self.screen.blit(state_text, (self.panel_x + 10, self.panel_y + 10))
-
-        # Distance to target
-        distance_text = self.font.render(f"Distance to target: {np.sqrt(distance)/50:.2f} m", True, self.text_color)
-        self.screen.blit(distance_text, (self.panel_x + 10, self.panel_y + 30))
-
-        # Lin vel
-        vel_lin_text = self.font.render(f"Linear Velocity: {vel_lin / 50:.3f} m/s", True, self.text_color)
-        self.screen.blit(vel_lin_text, (self.panel_x + 10, self.panel_y  + 60))
-
-        # Angular vel
-        vel_r_text = self.font.render(f"Angular Velocity: {vel_r / 50:.3f} rad/s", True, self.text_color)
-        self.screen.blit(vel_r_text, (self.panel_x + 10, self.panel_y + 80))
-
-        # Theta
-        theta_text = self.font.render(f"Orientation: {theta:.3f} rad", True, self.text_color)
-        self.screen.blit(theta_text, (self.panel_x + 10, self.panel_y + 100))
-
+            pygame.draw.line(self.screen, self.grid_color, (0, y), (self.screen.get_width() - self.info_panel_width, y))
 
     def draw_fading_trail(self, trail):
         """
@@ -100,12 +94,36 @@ class Visualizer:
         end_pos = (start_pos[0] + np.cos(angle) * length, start_pos[1] + np.sin(angle) * length)
         pygame.draw.line(self.screen, color, start_pos, end_pos, width)
 
+    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta):
+        """
+        Draws an info panel on the right side of the window
+        """
+        panel_rect = pygame.Rect(self.screen.get_width() - self.info_panel_width, 0, self.info_panel_width, self.screen.get_height())
+        pygame.draw.rect(self.screen, self.panel_color, panel_rect)
+
+        text_lines = [
+            f"Status: {state}",
+            f"Distance to Target: {np.sqrt(distance) / 50:.2f} m",
+            f"Linear Velocity: {abs(vel_lin) / 50:.3f} m/s",
+            f"Angular Velocity: {abs(vel_r) / 50:.3f} rad/s",
+            f"Orientation: {((theta + np.pi) % (2 * np.pi) - np.pi):.3f} rad"
+        ]
+
+        y_offset = 20
+        for line in text_lines:
+            text_surface = self.font.render(line, True, self.text_color)
+            self.screen.blit(text_surface, (self.screen.get_width() - self.info_panel_width + 10, y_offset))
+            y_offset += 40
+
     def update(self, position, trail, state, mpc):
         """
         Updates the visualization by drawing the robot, predicted trajectory,
                 and relevant information.
         """
         self.screen.fill((0, 0, 0))  # Clear the screen
+
+        # Draw the obstacle map
+        self.obstacle_map.draw(self.screen)
         self.draw_grid()
 
         # draw path history

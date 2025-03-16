@@ -41,8 +41,6 @@ class Simulation:
          Main simulation loop
         """
         while self.running:
-            #dt = self.clock.tick(60) / 1000.0  # deltaTime in seconds
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False

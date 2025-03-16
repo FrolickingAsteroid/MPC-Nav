@@ -9,6 +9,7 @@ import numpy as np
 import math
 import timeit
 
+from StaticConstraint import StaticObstacle
 from functions import Auxiliary
 
 class MPC(object):
@@ -32,7 +33,7 @@ class MPC(object):
                         'min_A': -50.0, 'min_Phi': -1.5, 'min_vt':-50.0, 'min_vr':-0.5}
 
         # Distance constraints
-        self.min_distance = 25      # 0.50 m
+        self.min_distance = 50      # 1 m
         self.max_distance = 100     # 2 m
 
         self.prev_target_x = 0
@@ -113,6 +114,21 @@ class MPC(object):
             x_next = X[0:self.nr_states,k] + dt/6*(k1+2*k2+2*k3+k4)
             opti.subject_to(X[0:self.nr_states,k+1]==x_next) # close the gaps
 
+
+        # Initialize variables x and y
+        # Shift previous trajectory forward
+        for k in range(1,self.N+1):
+            opti.set_initial(self.pos_x[k], self.init_x)
+            opti.set_initial(self.pos_y[k], self.init_y)
+
+        # ==============================
+        # COMPUTE COLLISION-FREE REGION
+        # ==============================
+        # 1. Obtain obstacle positions
+        # 2. Compute convex free region
+        # 3. Compute linear constraints (These will be hard constraints...)
+        # 4. Opt subject to c_k^{stat}(p_k) -> h_l - n_l(p_k - R_W^B(z) p_B^j) > 0
+
         # ==============================
         # SYSTEM CONSTRAINTS
         # ==============================
@@ -135,11 +151,6 @@ class MPC(object):
         opti.subject_to(self.vel_t[0]==self.init_vt)
         opti.subject_to(self.vel_r[0]==self.init_vr)
 
-        # initialize variables x and y
-        for k in range(1,self.N+1):
-            opti.set_initial(self.pos_x[k], self.init_x)
-            opti.set_initial(self.pos_y[k], self.init_y)
-
         # ==============================
         # DEFINE COST FUNCTION
         # ==============================
@@ -161,7 +172,7 @@ class MPC(object):
         # (Easier than changing frame atm)
         target_heading = arctan2(gp[1] - self.prev_target_y, gp[0] - self.prev_target_x)
         angle_error = atan2(sin(target_heading - state['theta']), cos(target_heading - state['theta']))
-        large_angle_error = abs(angle_error) > 0.8
+        large_angle_error = abs(angle_error) > 1
 
         # Define the cost function
         objective = 0
@@ -175,15 +186,15 @@ class MPC(object):
             objective += 0.1 * angle_error**2
 
             if self.min_distance < sqrt(self.current_distance) < self.max_distance:
-                if large_angle_error:
+                if not target_moving:
+
+                    self.status = "Stopped"
+                    objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
+                elif large_angle_error:
 
                     self.status = "Turn-In-Place"
                     objective += 5.0 * angle_error**2
                     objective += 10.0 * self.vel_t[k]**2
-                elif not target_moving:
-
-                    self.status = "Stopped"
-                    objective += 10.0 * (self.vel_t[k] ** 2 + self.vel_r[k] ** 2)
                 else:
 
                     self.status = "Track target"
