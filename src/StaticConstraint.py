@@ -1,3 +1,10 @@
+"""
+Filename: StaticConstraint.py
+Description:
+    Makes the necessary computations for the generation of
+    static obstacle avoidance lin constraints
+"""
+
 import numpy as np
 
 class StaticObstacle:
@@ -39,7 +46,7 @@ class StaticObstacle:
     def shift_previous_trajectory():
         """
         Shift the optimal trajectory computed at time t − 1, namely,
-        q_{0:N} = [p^∗_{1:N} |t−1 , q_N ], where q_N is an extrapolation of 
+        q_{0:N} = [p^∗_{1:N} |t−1 , q_N ], where q_N is an extrapolation of
         the last two points, that is, q_N = 2p^∗_N |t−1 − p^∗_{N−1}|t−1
         """
         pass

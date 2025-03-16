@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
+"""
+Filename: create_map.py
+Description:
+    Interactive map creator
+"""
 import pygame
 import csv
 
-# Pygame setup
+
 pygame.init()
-WIDTH, HEIGHT = 800, 600
-GRID_SIZE = 20  # Same as used in your grid function
+WIDTH, HEIGHT = 800, 600 # needs to be the same as the sim window size
+GRID_SIZE = 20
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Grid-Based Obstacle Map Generator")
+pygame.display.set_caption("Obstacle Map Generator")
 
 # Colors
 WHITE = (255, 255, 255)
@@ -15,10 +20,9 @@ RED = (255, 0, 0)
 BLACK = (0, 0, 0)
 
 # Store obstacles as grid-aligned squares
-obstacles = set()  # Use a set to avoid duplicates
+obstacles = set()
 
 def snap_to_grid(pos):
-    """ Snaps a given (x, y) position to the nearest grid point """
     x = round(pos[0] / GRID_SIZE) * GRID_SIZE
     y = round(pos[1] / GRID_SIZE) * GRID_SIZE
     return x, y
@@ -35,7 +39,7 @@ while running:
 
     # Draw existing obstacles
     for obstacle in obstacles:
-        pygame.draw.rect(screen, RED, (*obstacle, GRID_SIZE, GRID_SIZE))  # Draw square obstacle
+        pygame.draw.rect(screen, RED, (*obstacle, GRID_SIZE, GRID_SIZE))
 
     pygame.display.flip()
 
@@ -47,7 +51,7 @@ while running:
             # Left click to add an obstacle
             if event.button == 1:
                 snapped_pos = snap_to_grid(event.pos)
-                obstacles.add(snapped_pos)  # Store as a set to prevent duplicates
+                obstacles.add(snapped_pos)
 
         elif event.type == pygame.KEYDOWN:
             # Press "S" to save the map and exit

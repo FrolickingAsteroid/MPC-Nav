@@ -60,5 +60,5 @@ class ControlObject:
         """
         Return target position history
         """
-        # Return the position history
+        # Return position history
         return [pos.astype(int) for pos in self.position_history]
