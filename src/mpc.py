@@ -53,6 +53,9 @@ class MPC(object):
         # Aux variables
         self.status = ""
         self.current_distance = 0;
+        self.prev_trajectory = None
+
+        self.stat_obj = StaticObstacle()
 
     def mpc_opt(self, state, gp):
         """
@@ -120,6 +123,19 @@ class MPC(object):
         for k in range(1,self.N+1):
             opti.set_initial(self.pos_x[k], self.init_x)
             opti.set_initial(self.pos_y[k], self.init_y)
+
+
+        if self.prev_trajectory:
+            # Shift previous trajectory forward
+            warm_start = self.stat_obj.shift_previous_trajectory(self.prev_trajectory, self.N)
+            for k in range(0, self.N):
+                opti.set_initial(self.pos_x[k], warm_start[k][0])
+                opti.set_initial(self.pos_y[k], warm_start[k][1])
+        else:
+            # If no previous trajectory, initialize using current robot state
+            for k in range(0, self.N):
+                opti.set_initial(self.pos_x[k], self.init_x)
+                opti.set_initial(self.pos_y[k], self.init_y)
 
         # ==============================
         # COMPUTE COLLISION-FREE REGION
@@ -233,6 +249,10 @@ class MPC(object):
         try:
             self.sol = opti.solve()   # actual solve
             converged = True
+
+            # Store the optimized trajectory for the next iteration
+            self.prev_trajectory = [(self.sol.value(self.pos_x[k]), self.sol.value(self.pos_y[k])) for k in range(self.N+1)]
+
         except:
             print("Not converged")
             converged = False
