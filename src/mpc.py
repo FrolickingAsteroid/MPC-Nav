@@ -4,13 +4,14 @@ Description:
     MPC implementation for a people-following robot
 """
 
+import casadi as ca
+
 from casadi import *
 import numpy as np
 import math
 import timeit
 
 from StaticConstraint import StaticObstacle
-from functions import Auxiliary
 
 class MPC(object):
     def __init__(self, T, N, state):
@@ -24,20 +25,15 @@ class MPC(object):
         # Number of control inputs (Acceleration A, Steering Phi)
         self.nr_states = 5; self.nr_controls = 2
 
-        self.sol = None
-
         # ==============================
         # SYSTEM CONSTRAINT PARAMETERS
         # ==============================
-        self.configs = {'max_A': 50.0,  'max_Phi': 1.5, 'max_vt': 50.0,  'max_vr':0.5,
-                        'min_A': -50.0, 'min_Phi': -1.5, 'min_vt':-50.0, 'min_vr':-0.5}
+        self.configs = {'max_A': 50.0,  'max_Phi': 0.5, 'max_vt': 50.0,  'max_vr':0.5,
+                        'min_A': -50.0, 'min_Phi': -0.5, 'min_vt':-50.0, 'min_vr':-0.5}
 
         # Distance constraints
         self.min_distance = 50      # 1 m
         self.max_distance = 100     # 2 m
-
-        self.prev_target_x = 0
-        self.prev_target_y = 0
 
         # ==============================
         # CONSTANTS
@@ -50,12 +46,29 @@ class MPC(object):
         # ==============================
         # (Section for robot dynamics?)
 
-        # Aux variables
+        # ==============================
+        # AUX VARIABLES
+        # ==============================
         self.status = ""
-        self.current_distance = 0;
-        self.prev_trajectory = None
+        self.solve_time = ""
 
+        # Optimization problem solution
+        self.sol = None
+
+        # distance information for the objective
+        self.current_distance = 0;
+        self.prev_target_x = 0
+        self.prev_target_y = 0
+
+        # ==============================
+        # STATIC OBSTACLE AVOIDANCE
+        # ==============================
         self.stat_obj = StaticObstacle()
+        self.prev_trajectory = None
+        self.constraints = []
+        self.corners = []
+
+        self.static_constraint = 0
 
     def mpc_opt(self, state, gp):
         """
@@ -101,29 +114,25 @@ class MPC(object):
         # SYSTEM DYNAMICS
         # ==============================
         # Unicycle model
-        f = lambda x,u: vertcat(x[3]*cos(x[2]),     # dx/dt = vt*cos(theta)
-                                x[3]*sin(x[2]),     # dy/dt = vt*sin(theta)
-                                x[4],               # dtheta/dt = vr
-                                u[0],               # dvt/dt = A
-                                u[1])               # dvr/dt = phi
+        f = lambda x,u: vertcat(x[3]*cos(x[2]),     # dx/self.dt = vt*cos(theta)
+                                x[3]*sin(x[2]),     # dy/self.dt = vt*sin(theta)
+                                x[4],               # self.dtheta/self.dt = vr
+                                u[0],               # dvt/self.dt = A
+                                u[1])               # dvr/self.dt = phi
 
-        dt = self.T/self.N          # Time interval: length of a control interval
-        for k in range(self.N):     # loop over control intervals
+        self.dt = self.T/self.N          # Time interval: length of a control interval
+        for k in range(self.N):          # loop over control intervals
             # Runge-Kutta 4 integration
             k1 = f(X[0:self.nr_states,k],         U[0:self.nr_controls,k])
-            k2 = f(X[0:self.nr_states,k]+dt/2*k1, U[0:self.nr_controls,k])
-            k3 = f(X[0:self.nr_states,k]+dt/2*k2, U[0:self.nr_controls,k])
-            k4 = f(X[0:self.nr_states,k]+dt*k3,   U[0:self.nr_controls,k])
-            x_next = X[0:self.nr_states,k] + dt/6*(k1+2*k2+2*k3+k4)
+            k2 = f(X[0:self.nr_states,k]+self.dt/2*k1, U[0:self.nr_controls,k])
+            k3 = f(X[0:self.nr_states,k]+self.dt/2*k2, U[0:self.nr_controls,k])
+            k4 = f(X[0:self.nr_states,k]+self.dt*k3,   U[0:self.nr_controls,k])
+            x_next = X[0:self.nr_states,k] + self.dt/6*(k1+2*k2+2*k3+k4)
             opti.subject_to(X[0:self.nr_states,k+1]==x_next) # close the gaps
 
-
-        # Initialize variables x and y
-        # Shift previous trajectory forward
-        for k in range(1,self.N+1):
-            opti.set_initial(self.pos_x[k], self.init_x)
-            opti.set_initial(self.pos_y[k], self.init_y)
-
+        # ==============================
+        # INIT X Y AND THETA
+        # ==============================
 
         if self.prev_trajectory:
             # Shift previous trajectory forward
@@ -131,19 +140,12 @@ class MPC(object):
             for k in range(0, self.N):
                 opti.set_initial(self.pos_x[k], warm_start[k][0])
                 opti.set_initial(self.pos_y[k], warm_start[k][1])
+                opti.set_initial(self.pos_theta[k], warm_start[k][2])
         else:
             # If no previous trajectory, initialize using current robot state
             for k in range(0, self.N):
                 opti.set_initial(self.pos_x[k], self.init_x)
                 opti.set_initial(self.pos_y[k], self.init_y)
-
-        # ==============================
-        # COMPUTE COLLISION-FREE REGION
-        # ==============================
-        # 1. Obtain obstacle positions
-        # 2. Compute convex free region
-        # 3. Compute linear constraints (These will be hard constraints...)
-        # 4. Opt subject to c_k^{stat}(p_k) -> h_l - n_l(p_k - R_W^B(z) p_B^j) > 0
 
         # ==============================
         # SYSTEM CONSTRAINTS
@@ -157,9 +159,16 @@ class MPC(object):
 
         # ---- boundary conditions --------
         # ==============================
+        # COMPUTE COLLISION-FREE REGION
+        # ==============================
+        self.static_constraint = 0
+
+        if self.prev_trajectory:
+            self.compute_static_constraints(warm_start)
+
+        # ==============================
         # INITIAL STATE CONSTRAINTS
         # ==============================
-
         # The first state in the trajectory matches the current robot state
         opti.subject_to(self.pos_x[0]==self.init_x)
         opti.subject_to(self.pos_y[0]==self.init_y)
@@ -170,36 +179,31 @@ class MPC(object):
         # ==============================
         # DEFINE COST FUNCTION
         # ==============================
-        # Would it be best to reason probabilistically instead of in a deterministic manner?
-        # Human movement is inherently unpredictable.
-        # Probabilistic human predictions instead of well defined states?
-        # Maybe too much...
-
+        # CHANGE TO FUZZY	
         # Check if the target is moving
         target_moving = (abs(gp[0] - self.prev_target_x) > 1e-3 or abs(gp[1] - self.prev_target_y) > 1e-3)
 
         # Compute estimated target velocity
-        vt_x = (gp[0] - self.prev_target_x) / dt
-        vt_y = (gp[1] - self.prev_target_y) / dt
+        vt_x = (gp[0] - self.prev_target_x) / self.dt
+        vt_y = (gp[1] - self.prev_target_y) / self.dt
         target_speed = sqrt(vt_x**2 + vt_y**2)
 
         # Check heading angle for sharp turns
+        target_heading = arctan2(gp[1] - self.prev_target_y, gp[0] - self.prev_target_x)
+
         # Use angle wrapping [-pi, pi] to prevent discontinuity and large angle errors
         # (Easier than changing frame atm)
-        target_heading = arctan2(gp[1] - self.prev_target_y, gp[0] - self.prev_target_x)
         angle_error = atan2(sin(target_heading - state['theta']), cos(target_heading - state['theta']))
         large_angle_error = abs(angle_error) > 1
 
         # Define the cost function
         objective = 0
-
+        objective = self.static_constraint
         for k in range(0, self.N + 1):
-            # ====================================
-            # FOV SOFT CONSTRAINT (for all states)
-            # ===================================
+            # !NOTE Fov Soft constraint (for all states), recheck
             angle_to_target = arctan2(gp[1] - self.pos_y[k], gp[0] - self.pos_x[k])
             angle_error = atan2(sin(angle_to_target - self.pos_theta[k]), cos(angle_to_target - self.pos_theta[k]))
-            objective += 0.1 * angle_error**2
+            objective += 1 * angle_error**2
 
             if self.min_distance < sqrt(self.current_distance) < self.max_distance:
                 if not target_moving:
@@ -244,29 +248,60 @@ class MPC(object):
         # ==============================
         # SOLVE THE OPTIMIZATION PROBLEM
         # ==============================
-        self.dt = dt
+        converged = self.solve_problem(opti)
+
+        # measure elapsed time
+        elapsed = timeit.default_timer() - start_time
+
+        self.solve_time = "To solve took {:.4f} seconds".format(elapsed)
+        print("To solve took {} seconds".format(elapsed))
+
+        if converged:
+            obj_vals =  opti.debug.stats()['iterations']['obj']
+            self.cost = obj_vals[-1]
+
+        return converged
+
+
+    def compute_static_constraints(self, warm_start):
+        """
+        Compute and apply bounding box to robot
+        """
+        self.constraints, self.corners = self.stat_obj.compute_collision_free_area(warm_start)
+
+        # Iterate over each prediction step
+        for k in range(len(self.constraints)):
+            constraint_set = self.constraints[k]
+
+            # Sclae importance for each step
+            weight = 1 * (k / self.N)
+
+            for A, B, C in constraint_set:
+                # penalize violation outside the constraint
+                # If the constraint is satisfied, violation = 0
+                # else violatio > 0
+                lhs = A * self.pos_x[k] + B * self.pos_y[k]
+                violation = ca.fmax(0, lhs - C)
+                self.static_constraint += weight * violation**2
+
+    def solve_problem(self, opti):
+        """
+        Attempt to solve optimization problem
+        """
+        self.dt = self.dt
         self.sol = None
         try:
             self.sol = opti.solve()   # actual solve
             converged = True
 
             # Store the optimized trajectory for the next iteration
-            self.prev_trajectory = [(self.sol.value(self.pos_x[k]), self.sol.value(self.pos_y[k])) for k in range(self.N+1)]
+            self.prev_trajectory = [(self.sol.value(self.pos_x[k]),
+                self.sol.value(self.pos_y[k]),
+                self.sol.value(self.pos_theta[k])) for k in range(self.N+1)]
 
         except:
             print("Not converged")
             converged = False
-
-        # measure elapsed time
-        elapsed = timeit.default_timer() - start_time
-        print("To solve took {} seconds".format(elapsed))
-
-        # ==============================
-        # RETRIEVE FINAL COST VALUE
-        # ==============================
-        obj_vals =  opti.debug.stats()['iterations']['obj']
-
-        self.cost = obj_vals[-1]
 
         return converged
 

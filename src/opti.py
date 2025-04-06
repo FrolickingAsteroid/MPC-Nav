@@ -6,8 +6,6 @@ Description:
 """
 import numpy as np
 import pygame
-import time
-import math
 
 from Control import ControlObject
 from functions import Auxiliary
@@ -23,7 +21,7 @@ class Simulation:
 
         # Initialize robot's state
         # Position is given in pixels
-        self.state = {'x':400.0, 'y': 350.0, 'theta': -np.pi/2, 'vt': 0.0, 'vr': 0.0}
+        self.state = {'x':400.0, 'y': 450.0, 'theta': -np.pi/2, 'vt': 0.0, 'vr': 0.0}
 
         self.clock = pygame.time.Clock()
         self.visualizer = Visualizer()
@@ -33,7 +31,7 @@ class Simulation:
         self.path = []
 
         # Initialize target at the center of the screen
-        self.control_object = ControlObject([window_size[0] // 2, window_size[1] // 2])
+        self.control_object = ControlObject([450, 280])
         self.running = True
 
     def run(self):

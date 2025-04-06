@@ -11,12 +11,11 @@ import platform
 import pygame
 import csv
 
-from Control import ControlObject
 from robot import Robot
 
 class ObstacleMap:
     def __init__(self, filename, grid_size=20):
-        self.obstacles = []
+        self.obstacles = set()
         self.grid_size = grid_size
         self.load_from_csv(filename)
 
@@ -28,7 +27,7 @@ class ObstacleMap:
             reader = csv.reader(file)
             for row in reader:
                 x, y = map(int, row)
-                self.obstacles.append((x, y))
+                self.obstacles.add((x, y))
 
     def draw(self, screen):
         """
@@ -94,7 +93,7 @@ class Visualizer:
         end_pos = (start_pos[0] + np.cos(angle) * length, start_pos[1] + np.sin(angle) * length)
         pygame.draw.line(self.screen, color, start_pos, end_pos, width)
 
-    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta):
+    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta, solve_time):
         """
         Draws an info panel on the right side of the window
         """
@@ -106,7 +105,8 @@ class Visualizer:
             f"Distance to Target: {np.sqrt(distance) / 50:.2f} m",
             f"Linear Velocity: {abs(vel_lin) / 50:.3f} m/s",
             f"Angular Velocity: {abs(vel_r) / 50:.3f} rad/s",
-            f"Orientation: {((theta + np.pi) % (2 * np.pi) - np.pi):.3f} rad"
+            f"Orientation: {((theta + np.pi) % (2 * np.pi) - np.pi):.3f} rad",
+            solve_time
         ]
 
         y_offset = 20
@@ -125,6 +125,12 @@ class Visualizer:
         # Draw the obstacle map
         self.obstacle_map.draw(self.screen)
         self.draw_grid()
+
+        if hasattr(mpc, 'corners') and mpc.corners is not None:
+            for square in mpc.corners:
+                pygame.draw.polygon(self.screen, (250, 250, 0), [(int(x), int(y)) for x, y in square], 2)
+
+
 
         # draw path history
         self.draw_fading_trail(trail)
@@ -146,5 +152,11 @@ class Visualizer:
         pygame.draw.circle(self.screen, (255, 0, 0), position, 8)
 
         # Draw the info panel
-        self.draw_info_panel(mpc.status, mpc.current_distance, state['vt'], state['vr'], state['theta'])
+        self.draw_info_panel(mpc.status,
+            mpc.current_distance,
+            state['vt'],
+            state['vr'],
+            state['theta'],
+            mpc.solve_time)
+
         pygame.display.flip()

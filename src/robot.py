@@ -12,10 +12,8 @@ import pygame
 class Robot:
     def __init__(self, x=400, y=350, theta=-np.pi/2, b=15, wheel_radius=5):
         self.position = np.array([x, y], dtype=float)
-        self.wheel_radius = wheel_radius
         self.angle = theta
-        self.radius = 15
-        self.b = b
+        self.b = b # robot radius
 
         self.color = (51, 255, 51)
 
