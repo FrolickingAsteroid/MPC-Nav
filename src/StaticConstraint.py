@@ -21,6 +21,10 @@ class StaticObstacle:
 
         self.radius = 15
 
+        # Time variables for printing
+        self.solve_time = ""
+        self.elapsed = 0
+
     def compute_collision_free_area(self, pred_traj):
         """
         Wrapper for static constraint calc.
@@ -36,9 +40,9 @@ class StaticObstacle:
             corner_list.append(corners)
 
         # measure elapsed time
-        elapsed = timeit.default_timer() - start_time
-        solve_time = "To find free area took {:.4f} seconds".format(elapsed)
-        print(solve_time)
+        self.elapsed = timeit.default_timer() - start_time
+        self.solve_time = "To find free area took {:.4f} seconds".format(self.elapsed)
+        print(self.solve_time)
 
         return free_regions, corner_list
 

@@ -49,8 +49,10 @@ class MPC(object):
         # ==============================
         # AUX VARIABLES
         # ==============================
+        # Time related variables for printing
         self.status = ""
         self.solve_time = ""
+        self.elapsed = 0
 
         # Optimization problem solution
         self.sol = None
@@ -133,7 +135,6 @@ class MPC(object):
         # ==============================
         # INIT X Y AND THETA
         # ==============================
-
         if self.prev_trajectory:
             # Shift previous trajectory forward
             warm_start = self.stat_obj.shift_previous_trajectory(self.prev_trajectory, self.N)
@@ -141,6 +142,9 @@ class MPC(object):
                 opti.set_initial(self.pos_x[k], warm_start[k][0])
                 opti.set_initial(self.pos_y[k], warm_start[k][1])
                 opti.set_initial(self.pos_theta[k], warm_start[k][2])
+
+            # Compute collision free fregions
+            self.compute_static_constraints(warm_start)
         else:
             # If no previous trajectory, initialize using current robot state
             for k in range(0, self.N):
@@ -159,14 +163,6 @@ class MPC(object):
 
         # ---- boundary conditions --------
         # ==============================
-        # COMPUTE COLLISION-FREE REGION
-        # ==============================
-        self.static_constraint = 0
-
-        if self.prev_trajectory:
-            self.compute_static_constraints(warm_start)
-
-        # ==============================
         # INITIAL STATE CONSTRAINTS
         # ==============================
         # The first state in the trajectory matches the current robot state
@@ -179,7 +175,7 @@ class MPC(object):
         # ==============================
         # DEFINE COST FUNCTION
         # ==============================
-        # CHANGE TO FUZZY	
+        # CHANGE TO FUZZY
         # Check if the target is moving
         target_moving = (abs(gp[0] - self.prev_target_x) > 1e-3 or abs(gp[1] - self.prev_target_y) > 1e-3)
 
@@ -251,10 +247,10 @@ class MPC(object):
         converged = self.solve_problem(opti)
 
         # measure elapsed time
-        elapsed = timeit.default_timer() - start_time
+        self.elapsed = timeit.default_timer() - start_time
 
-        self.solve_time = "To solve took {:.4f} seconds".format(elapsed)
-        print("To solve took {} seconds".format(elapsed))
+        self.solve_time = "To solve took {:.4f} seconds".format(self.elapsed)
+        print(self.solve_time)
 
         if converged:
             obj_vals =  opti.debug.stats()['iterations']['obj']
@@ -267,6 +263,7 @@ class MPC(object):
         """
         Compute and apply bounding box to robot
         """
+        self.static_constraint = 0
         self.constraints, self.corners = self.stat_obj.compute_collision_free_area(warm_start)
 
         # Iterate over each prediction step

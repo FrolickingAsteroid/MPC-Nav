@@ -93,7 +93,7 @@ class Visualizer:
         end_pos = (start_pos[0] + np.cos(angle) * length, start_pos[1] + np.sin(angle) * length)
         pygame.draw.line(self.screen, color, start_pos, end_pos, width)
 
-    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta, solve_time):
+    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta, mpc_solve_time, square_solve_time, mpc_elapsed, square_elapsed):
         """
         Draws an info panel on the right side of the window
         """
@@ -105,15 +105,28 @@ class Visualizer:
             f"Distance to Target: {np.sqrt(distance) / 50:.2f} m",
             f"Linear Velocity: {abs(vel_lin) / 50:.3f} m/s",
             f"Angular Velocity: {abs(vel_r) / 50:.3f} rad/s",
-            f"Orientation: {((theta + np.pi) % (2 * np.pi) - np.pi):.3f} rad",
-            solve_time
+            f"Orientation: {((theta + np.pi) % (2 * np.pi) - np.pi):.3f} rad"
         ]
 
         y_offset = 20
         for line in text_lines:
             text_surface = self.font.render(line, True, self.text_color)
             self.screen.blit(text_surface, (self.screen.get_width() - self.info_panel_width + 10, y_offset))
-            y_offset += 40
+            y_offset += 30
+
+        text_lines = [
+            mpc_solve_time,
+            square_solve_time
+        ]
+
+        y_offset += 40
+        for line in text_lines:
+            text_surface = self.font.render(line, True, self.text_color)
+            self.screen.blit(text_surface, (self.screen.get_width() - self.info_panel_width + 10, y_offset))
+            y_offset += 30
+
+        text_surface = self.font.render(f"Total elapsed time: {mpc_elapsed + square_elapsed:.4f} seconds", True, (255, 0, 0))
+        self.screen.blit(text_surface, (self.screen.get_width() - self.info_panel_width + 10, y_offset))
 
     def update(self, position, trail, state, mpc):
         """
@@ -129,8 +142,6 @@ class Visualizer:
         if hasattr(mpc, 'corners') and mpc.corners is not None:
             for square in mpc.corners:
                 pygame.draw.polygon(self.screen, (250, 250, 0), [(int(x), int(y)) for x, y in square], 2)
-
-
 
         # draw path history
         self.draw_fading_trail(trail)
@@ -157,6 +168,10 @@ class Visualizer:
             state['vt'],
             state['vr'],
             state['theta'],
-            mpc.solve_time)
+            mpc.solve_time,
+            mpc.stat_obj.solve_time,
+            mpc.elapsed,
+            mpc.stat_obj.elapsed
+        )
 
         pygame.display.flip()
