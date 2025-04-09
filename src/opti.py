@@ -20,19 +20,44 @@ class Simulation:
         self.dt = self.T / self.N
 
         # Initialize robot's state
-        # Position is given in pixels
-        self.state = {'x':400.0, 'y': 450.0, 'theta': -np.pi/2, 'vt': 0.0, 'vr': 0.0}
+        # Position is given in pixels and set by the user
+        self.state = {'x':0.0, 'y': 0.0, 'theta': -np.pi/2, 'vt': 0.0, 'vr': 0.0}
 
         self.clock = pygame.time.Clock()
-        self.visualizer = Visualizer()
-        self.mpc = MPC(self.T, self.N, self.state)
+
+        self.map = "Maps/obstacle_grid_map_2.csv"
+        self.visualizer = Visualizer(self.map)
+        self.mpc = MPC(self.T, self.N, self.state, self.map)
         self.fs = Auxiliary()
 
         self.path = []
 
-        # Initialize target at the center of the screen
-        self.control_object = ControlObject([450, 280])
+        # define target and robot position
+        self.user_init()
         self.running = True
+
+    def user_init(self):
+            clicked = 0
+            font = pygame.font.SysFont(None, 24)
+            while clicked < 2:
+                self.visualizer.draw_static_map()
+                text = "Set robot position" if clicked == 0 else "Set target position"
+                label = font.render(text, True, (255, 255, 255))
+                self.visualizer.screen.blit(label, (10, 10))
+                pygame.display.flip()
+
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                        return
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        pos = pygame.mouse.get_pos()
+                        if clicked == 0:
+                            self.state['x'], self.state['y'] = pos
+                            clicked += 1
+                        elif clicked == 1:
+                            self.control_object = ControlObject(list(pos))
+                            clicked += 1
 
     def run(self):
         """

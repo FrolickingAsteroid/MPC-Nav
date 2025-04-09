@@ -12,12 +12,12 @@ import time
 
 
 class StaticObstacle:
-    def __init__(self, grid_size=20):
+    def __init__(self, map, grid_size=20):
 
         # List of (x, y) obstacle positions
         # Each point is a grid cell
         self.grid_size = grid_size
-        self.obstacle_map = ObstacleMap("Maps/obstacle_grid_map.csv")
+        self.obstacle_map = ObstacleMap(map)
 
         self.radius = 15
 

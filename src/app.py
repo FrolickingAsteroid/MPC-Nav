@@ -37,7 +37,7 @@ class ObstacleMap:
             pygame.draw.rect(screen, (255, 255, 255), (*obstacle, self.grid_size, self.grid_size))
 
 class Visualizer:
-    def __init__(self, window_size=(1100, 600), grid_size=20, info_panel_width=300):
+    def __init__(self, map, window_size=(1100, 600), grid_size=20, info_panel_width=300):
         pygame.init()
 
         # Expand the window to fit the info panel on the right
@@ -56,7 +56,14 @@ class Visualizer:
         self.text_color = (0, 0, 0)
 
         self.robot = Robot()
-        self.obstacle_map = ObstacleMap("Maps/obstacle_grid_map.csv")
+        self.obstacle_map = ObstacleMap(map)
+
+    def draw_static_map(self):
+        self.screen.fill((0, 0, 0))  # Clear the screen
+
+        # Draw the obstacle map
+        self.obstacle_map.draw(self.screen)
+        self.draw_grid()
 
     def draw_grid(self):
         """
@@ -118,7 +125,6 @@ class Visualizer:
             mpc_solve_time,
             square_solve_time
         ]
-
         y_offset += 40
         for line in text_lines:
             text_surface = self.font.render(line, True, self.text_color)
@@ -133,11 +139,7 @@ class Visualizer:
         Updates the visualization by drawing the robot, predicted trajectory,
                 and relevant information.
         """
-        self.screen.fill((0, 0, 0))  # Clear the screen
-
-        # Draw the obstacle map
-        self.obstacle_map.draw(self.screen)
-        self.draw_grid()
+        self.draw_static_map()
 
         if hasattr(mpc, 'corners') and mpc.corners is not None:
             for square in mpc.corners:

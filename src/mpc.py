@@ -14,7 +14,7 @@ import timeit
 from StaticConstraint import StaticObstacle
 
 class MPC(object):
-    def __init__(self, T, N, state):
+    def __init__(self, T, N, state, map):
         # ==============================
         #  CONFIGURATION
         # ==============================
@@ -65,7 +65,7 @@ class MPC(object):
         # ==============================
         # STATIC OBSTACLE AVOIDANCE
         # ==============================
-        self.stat_obj = StaticObstacle()
+        self.stat_obj = StaticObstacle(map)
         self.prev_trajectory = None
         self.constraints = []
         self.corners = []

@@ -11,8 +11,8 @@ import csv
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 800, 600             
-GRID_SIZE = 20                       
+WIDTH, HEIGHT = 800, 600
+GRID_SIZE = 20
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pixel-Level Obstacle Map Creator")
 
@@ -59,7 +59,7 @@ while running:
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_s:
-                with open("pixel_obstacle_map.csv", "w", newline="") as file:
+                with open("obstacle_grid_map.csv", "w", newline="") as file:
                     writer = csv.writer(file)
                     for (x, y) in sorted(obstacles):
                         writer.writerow([x, y])
