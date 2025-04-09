@@ -25,7 +25,7 @@ class Simulation:
 
         self.clock = pygame.time.Clock()
 
-        self.map = "Maps/obstacle_grid_map_2.csv"
+        self.map = "Maps/obstacle_grid_map_4.csv"
         self.visualizer = Visualizer(self.map)
         self.mpc = MPC(self.T, self.N, self.state, self.map)
         self.fs = Auxiliary()
@@ -37,6 +37,9 @@ class Simulation:
         self.running = True
 
     def user_init(self):
+            """
+            Set target and robot position
+            """
             clicked = 0
             font = pygame.font.SysFont(None, 24)
             while clicked < 2:

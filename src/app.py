@@ -100,14 +100,23 @@ class Visualizer:
         end_pos = (start_pos[0] + np.cos(angle) * length, start_pos[1] + np.sin(angle) * length)
         pygame.draw.line(self.screen, color, start_pos, end_pos, width)
 
-    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta, mpc_solve_time, square_solve_time, mpc_elapsed, square_elapsed):
+    def draw_info_panel(self, state, distance, vel_lin, vel_r, theta,
+                        mpc_solve_time, square_solve_time, mpc_elapsed, square_elapsed):
         """
-        Draws an info panel on the right side of the window
+        Draws an info panel on the right side of the window.
         """
-        panel_rect = pygame.Rect(self.screen.get_width() - self.info_panel_width, 0, self.info_panel_width, self.screen.get_height())
+        def render_lines(lines, y_start):
+            for line in lines:
+                surface = self.font.render(line, True, self.text_color)
+                self.screen.blit(surface, (self.screen.get_width() - self.info_panel_width + 10, y_start))
+                y_start += 30
+            return y_start
+
+        panel_x = self.screen.get_width() - self.info_panel_width
+        panel_rect = pygame.Rect(panel_x, 0, self.info_panel_width, self.screen.get_height())
         pygame.draw.rect(self.screen, self.panel_color, panel_rect)
 
-        text_lines = [
+        info_lines = [
             f"Status: {state}",
             f"Distance to Target: {np.sqrt(distance) / 50:.2f} m",
             f"Linear Velocity: {abs(vel_lin) / 50:.3f} m/s",
@@ -115,24 +124,15 @@ class Visualizer:
             f"Orientation: {((theta + np.pi) % (2 * np.pi) - np.pi):.3f} rad"
         ]
 
-        y_offset = 20
-        for line in text_lines:
-            text_surface = self.font.render(line, True, self.text_color)
-            self.screen.blit(text_surface, (self.screen.get_width() - self.info_panel_width + 10, y_offset))
-            y_offset += 30
+        y = render_lines(info_lines, y_start=20)
 
-        text_lines = [
-            mpc_solve_time,
-            square_solve_time
-        ]
-        y_offset += 40
-        for line in text_lines:
-            text_surface = self.font.render(line, True, self.text_color)
-            self.screen.blit(text_surface, (self.screen.get_width() - self.info_panel_width + 10, y_offset))
-            y_offset += 30
+        timing_lines = [mpc_solve_time, square_solve_time]
+        y = render_lines(timing_lines, y_start=y + 40)
 
-        text_surface = self.font.render(f"Total elapsed time: {mpc_elapsed + square_elapsed:.4f} seconds", True, (255, 0, 0))
-        self.screen.blit(text_surface, (self.screen.get_width() - self.info_panel_width + 10, y_offset))
+        elapsed_text = f"Total elapsed time: {mpc_elapsed + square_elapsed:.4f} seconds"
+        elapsed_surface = self.font.render(elapsed_text, True, (255, 0, 0))
+        self.screen.blit(elapsed_surface, (panel_x + 10, y))
+
 
     def update(self, position, trail, state, mpc):
         """
