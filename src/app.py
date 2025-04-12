@@ -155,7 +155,7 @@ class Visualizer:
             thetas = mpc.sol.value(mpc.pos_theta)
 
             for i in range(len(xs)):
-                self.draw_arrow((xs[i], ys[i]), thetas[i], length=40, color=(255, 0, 255), width=1)
+                self.draw_arrow((xs[i], ys[i]), thetas[i], length=1, color=(255, 0, 255), width=1)
 
         # Update the robot's state and draw it
         self.robot.update_state(state)

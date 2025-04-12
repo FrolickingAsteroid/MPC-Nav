@@ -28,8 +28,8 @@ class MPC(object):
         # ==============================
         # SYSTEM CONSTRAINT PARAMETERS
         # ==============================
-        self.configs = {'max_A': 50.0,  'max_Phi': 0.5, 'max_vt': 50.0,  'max_vr':0.5,
-                        'min_A': -50.0, 'min_Phi': -0.5, 'min_vt':-50.0, 'min_vr':-0.5}
+        self.configs = {'max_A': 50.0,  'max_Phi': 1.5, 'max_vt': 50.0,  'max_vr':1.5,
+                        'min_A': -50.0, 'min_Phi': -1.5, 'min_vt':-50.0, 'min_vr':-1.5}
 
         # Distance constraints
         self.min_distance = 50      # 1 m
@@ -278,8 +278,8 @@ class MPC(object):
                 # If the constraint is satisfied, violation = 0
                 # else violatio > 0
                 lhs = A * self.pos_x[k] + B * self.pos_y[k]
-                violation = ca.fmax(0, lhs - C)
-                self.static_constraint += weight * violation**2
+                violation = lhs - C
+                self.static_constraint += 1 * violation**2
 
     def solve_problem(self, opti):
         """

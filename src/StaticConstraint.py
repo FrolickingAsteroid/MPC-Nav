@@ -148,7 +148,7 @@ class StaticObstacle:
         return constraints, list(zip(sqx, sqy))
 
     def compute_bounds(self, x_path, y_path, theta):
-        max_search_distance = 35
+        max_search_distance = 40
 
         # Initialize search bounds with max search range
         x_min, x_max = -max_search_distance, max_search_distance
@@ -191,6 +191,9 @@ class StaticObstacle:
                 if any(self.get_rotated_occupancy(x_path, search_x, y_path, y, theta) for y in y_range):
                     x_max = search_x
                     right = False
+
+            if left == False and right == False and top == False and bottom == False:
+                break;
 
             search_distance += 1
 
