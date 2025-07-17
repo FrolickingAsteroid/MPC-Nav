@@ -1,0 +1,4 @@
+<launch>
+  <!-- Launch your MPC follower node -->
+  <node name="mpc_follower" pkg="mpc_people_following" type="mpc_wrapper.py" output="screen"/>
+</launch>

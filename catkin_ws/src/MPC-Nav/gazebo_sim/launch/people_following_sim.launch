@@ -1,0 +1,23 @@
+<launch>
+    <!-- Include the standard TIAGo mapping launch -->
+
+    <!-- Launch TIAGo in Gazebo -->
+    <include file="$(find tiago_gazebo)/launch/tiago_gazebo.launch">
+        <arg name="public_sim" value="true"/>
+        <arg name="end_effector" value="pal-gripper"/>
+        <arg name="laser_model" value="ydlidar-tg30"/>
+        <arg name="world" value="$(find gazebo_sim)/worlds/Decomp"/>
+    </include>
+
+    <!-- Launch RVIZ -->
+    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find gazebo_sim)/rviz/people_following_sim.rviz" />
+
+    <!-- Spawn Derpy Actor -->
+    <env name="GAZEBO_MODEL_PATH" value="$(find gazebo_sim)/models" />
+    <node name="spawn_actor" pkg="gazebo_ros" type="spawn_model" output="screen"
+        args="-file $(find gazebo_sim)/models/actor/model.sdf -sdf -model actor1 -x 1 -y 0 -z 0" />
+
+    <node name="actor_tf_broadcaster" pkg="mpc_people_following" type="Poses.py" output="screen"/>
+    <node name="markers" pkg="mpc_people_following" type="AuxPub.py" output="screen"/>
+    <node name="PointCloud" pkg="mpc_people_following" type="LaserToPointCloud.py" output="screen"/>
+</launch>

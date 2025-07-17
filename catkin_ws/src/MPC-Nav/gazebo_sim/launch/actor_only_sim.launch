@@ -1,0 +1,8 @@
+<launch>
+  <env name="GAZEBO_MODEL_PATH" value="$(find mpc_people_following)/models" />
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch"/>
+
+  <node name="spawn_actor" pkg="gazebo_ros" type="spawn_model" output="screen"
+        args="-file $(find gazebo_sim)/models/actor/model.sdf -sdf -model actor1 -x 2 -y 0 -z 0"/>
+</launch>

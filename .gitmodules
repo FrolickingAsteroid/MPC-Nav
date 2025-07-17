@@ -1,0 +1,3 @@
+[submodule "catkin_ws/src/MPC-Nav/DecompROS"]
+	path = catkin_ws/src/MPC-Nav/DecompROS
+	url = https://github.com/sikang/DecompROS

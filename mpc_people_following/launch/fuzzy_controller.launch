@@ -1,0 +1,3 @@
+<launch>
+  <node name="fuzzy_controller" pkg="mpc_people_following" type="fuzzy.py" output="screen"/>
+</launch>
