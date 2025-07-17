@@ -153,7 +153,7 @@ class MPC(object):
                 objective += weights["fov"] * angle_error**2
 
             if len(polyhedron_planes) > 0:
-                objective += weights["pursuit"] * self.compute_static_constraints(polyhedron_planes, k, plane_weights)
+                objective += 1 * self.compute_static_constraints(polyhedron_planes, k, plane_weights)
 
             objective += weights["pursuit"] * ((x - self.pos_x[k])**2 + (y - self.pos_y[k])**2)
             objective += weights["turn"] * self.vel_t[k]**2

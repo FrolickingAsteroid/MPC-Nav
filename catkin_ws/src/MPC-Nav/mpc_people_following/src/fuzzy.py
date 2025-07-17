@@ -193,9 +193,9 @@ class FuzzyController:
                 ctrl.Rule(self.distance['small'] & self.angle['zero'],
                     (self.fov_weight['Zero'], self.turn_weight['Low'])),
                 ctrl.Rule(self.distance['small'] & self.angle['neg_big'],
-                    (self.fov_weight['Negative'], self.turn_weight['Low'])),
+                    (self.fov_weight['Negative'], self.turn_weight['Medium'])),
                 ctrl.Rule(self.distance['small'] & self.angle['pos_big'],
-                    (self.fov_weight['Positive'], self.turn_weight['Low'])),
+                    (self.fov_weight['Positive'], self.turn_weight['Medium'])),
 
                 ctrl.Rule(self.distance['medium'] & self.angle['zero'],
                     (self.fov_weight['Zero'], self.turn_weight['Low'])),
